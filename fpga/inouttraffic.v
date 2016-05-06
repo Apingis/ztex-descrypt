@@ -15,7 +15,12 @@
 module inouttraffic(
 	input CS,
 	input [2:0] FPGA_ID,
+	// It switches IFCLK to 48 MHz when it uploads bitstream.
+	// On other FPGAs, CS is low at that time.
 	input IFCLK,
+	
+	// suggest FXCLK as a clock source for application.
+	input FXCLK,
 
 	// Vendor Command/Request I/O
 	inout [7:0] PC, //  Vendor Command/Request (VCR) address/data
@@ -36,7 +41,7 @@ module inouttraffic(
 	);
 
 	// Application clock CLK_APP
-	wire CLK_APP = IFCLK;
+	wire CLK_APP = FXCLK;
 	
 	// Reset is performed via VCR interface with respect to IFCLK
 	wire RESET;

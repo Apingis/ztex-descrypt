@@ -1,5 +1,14 @@
 `timescale 1ns / 1ps
 
+//*****************************************************************************
+//
+// High-Speed communtcation to USB device controller's Slave FIFO
+//
+// It is implemented on a state machine with outputs dependent on both input
+// and internal state. That's slow and is unable to operate at 48 MHz IFCLK.
+//
+//*****************************************************************************
+
 module hs_io #(
 	parameter USB_ENDPOINT_IN = 2, // from the point of view from the host
 	parameter USB_ENDPOINT_OUT = 6
@@ -46,10 +55,7 @@ module hs_io #(
 	wire ENABLE = EN && CS;
 	
 	assign sfifo_not_empty = FLAGC;
-/*	(* KEEP_HIERARCHY="true" *) hs_io_r hs_io_r_inst(
-		.CLK(IFCLK), .din(FIFO_DATA_IN), .dout(dout)
-	);
-*/
+
 	// Input register.
 	(* KEEP="true" *) reg [15:0] dout_r;
 	assign dout = dout_r;
@@ -83,25 +89,7 @@ module hs_io #(
 
 endmodule
 
-/////////////////////////////////////////////////////////////////////
-//
-//  Input register.
-//
-/////////////////////////////////////////////////////////////////////
-/*
-module hs_io_r (
-	input CLK,
-	input [15:0] din,
-	output [15:0] dout
-	);
 
-	(* KEEP="true" *) reg [15:0] dout_r;
-	assign dout = dout_r;
-	always @(posedge CLK)
-		dout_r <= din;
-
-endmodule
-*/
 /////////////////////////////////////////////////////////////////////
 //
 //  Gather the stuff in some place near FLAG{B,C}, SL{WR/RD}

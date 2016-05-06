@@ -2,6 +2,10 @@ NET "IFCLK" TNM_NET = "IFCLK";
 TIMESPEC "TS_IFCLK" = PERIOD "IFCLK" 20 ns HIGH 50 %;
 NET "IFCLK"  LOC = "K20" |IOSTANDARD = LVCMOS33 ;
 
+NET "FXCLK" TNM_NET = "FXCLK";
+TIMESPEC "TS_FXCLK" = PERIOD "FXCLK" 20.83333 ns HIGH 50 %;
+NET "FXCLK"  LOC = "L22" | IOSTANDARD = LVCMOS33 ;
+
 NET "CS"  LOC = "AB11" |IOSTANDARD = LVCMOS33 ;
 
 NET "PA0"  LOC = "AA22" |IOSTANDARD = LVCMOS33 ;
@@ -60,8 +64,6 @@ INST "hs_io_inst" AREA_GROUP = "pblock_hs_io";
 
 AREA_GROUP "pblock_io" RANGE=SLICE_X68Y72:SLICE_X87Y87;
 INST "vcr_inst" AREA_GROUP = "pblock_io";
-#INST "hs_io_inst/hs_io_r_inst" AREA_GROUP = "pblock_io";
 INST "packet_aware_fifo_inst" AREA_GROUP = "pblock_io";
-#INST "fifo_16in_64out_inst" AREA_GROUP = "pblock_io";
 INST "hs_io_inst/dout_r*" AREA_GROUP = "pblock_io";
 
