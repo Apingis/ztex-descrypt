@@ -117,8 +117,7 @@ module inouttraffic(
 	wire [15:0] output_limit, output_limit_min;
 	wire [15:0] output_dout; // output via High-Speed Interface
 
-	(* KEEP_HIERARCHY="true" *)
-	packet_aware_fifo packet_aware_fifo_inst(
+	output_fifo output_fifo(
 		.rst(RESET),
 		.wr_clk(CLK_APP),
 		.rd_clk(IFCLK),

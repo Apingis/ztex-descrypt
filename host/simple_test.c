@@ -165,6 +165,7 @@ void main(int argc, char **argv)
 		exit(0);
 
 	printf("Simple test. Using 1st device, FPGA #0. Only most basic functions used.\n");
+	printf("Expecting firmware and bitstream are already uploaded.\n");
 
 	struct ztex_device *dev = ztex_dev_list->dev;
 	struct libusb_device_handle *handle = dev->handle;
@@ -181,7 +182,8 @@ void main(int argc, char **argv)
 	// fpga_reset() enables High-Speed interface, also clears internal buffers.
 	result = fpga_reset(handle); 
 	if (result < 0) {
-		fprintf(stderr, "Soft reset returns %d, usb_strerror: %s\n", result, libusb_strerror(result));
+		fprintf(stderr, "fpga_reset() returns %d, usb_strerror: %s\n", result, libusb_strerror(result));
+		fprintf(stderr, "Did you upload firmware?\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -209,9 +211,7 @@ void main(int argc, char **argv)
 
 	printf("Using max. r/w size: 16K input + (8K -8B) output FPGA buffers + 2* 2K USB device controller's buffers\n");
 	// It predictably returns with USB_ETIMEDOUT if 8 more bytes added.
-	// Correction: there's extra 8 bytes somewhere,
-	// probably in input FIFO because of its "1st Word Fall-Through" option.
-	test_hs_inout(handle, 16384+8192/*-8*/+2*2048, 1*1024/2*test_factor);
+	test_hs_inout(handle, 16384 +8192-8 +2*2048, 1*1024/2*test_factor);
 
 	test_select_fpga(dev, 4096*(test_factor > 8 ? 8 : test_factor));
 
