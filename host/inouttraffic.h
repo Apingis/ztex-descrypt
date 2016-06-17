@@ -10,6 +10,8 @@
 
 #define DEVICE_FPGAS_MAX 4
 
+#define OUTPUT_WORD_WIDTH 2
+
 extern int DEBUG;
 
 // used by VR 0x84, fpga_get_io_state()
@@ -19,14 +21,14 @@ struct fpga_io_state {
 	unsigned char io_state;
  	unsigned char timeout;
 	unsigned char app_status;
-	unsigned char debug1;
+	unsigned char pkt_comm_status;
 	unsigned char debug2;
 	unsigned char debug3;
 };
 
 // fpga_io_state.io_state
 #define IO_STATE_INPUT_PROG_FULL 0x01
-#define IO_STATE_OUTPUT_LIMIT_DONE 0x02
+#define IO_STATE_LIMIT_NOT_DONE 0x02
 #define IO_STATE_OUTPUT_ERR_OVERFLOW 0x04
 #define IO_STATE_SFIFO_NOT_EMPTY 0x08
 
@@ -49,11 +51,16 @@ int fpga_get_io_state(struct libusb_device_handle *handle, struct fpga_io_state 
 int fpga_setup_output(struct libusb_device_handle *handle);
 
 // soft reset (VC 0x8B)
+// It resets FPGA to its post-configuration state with Global Set Reset (GSR).
+// Inouttraffic bitstreams have High-Speed interface disabled by default.
+// After reset, fpga_reset() enables High-Speed interface.
+// consider device_fpga_reset() to reset all FPGA's on device
 int fpga_reset(struct libusb_device_handle *handle);
 
 // enable/disable high-speed output.
 // FPGA comes with High-Speed I/O (hs_io) disabled.
-// hs_io gets enabled by e.g. fpga_select() or fpga_reset().
+// Application usually would not need this:
+// hs_io status changes internally by e.g. fpga_select() and fpga_reset().
 int fpga_hs_io_enable(struct libusb_device_handle *handle, int enable);
 
 // enabled by default; disable for raw I/O tests
@@ -97,6 +104,8 @@ struct fpga {
 	struct fpga_rd rd;
 	uint64_t cmd_count;
 	uint64_t data_out,data_in; // specific for advanced_test.c
+	
+	struct pkt_comm *comm;
 };
 
 struct device {
@@ -112,6 +121,7 @@ struct device {
 
 struct device_list {
 	struct device *device;
+	struct ztex_dev_list *ztex_dev_list;
 };
 
 // Creates 'struct device' on top of 'struct ztex_device'
@@ -134,9 +144,13 @@ void device_list_add(struct device_list *device_list, struct device *device);
 
 int device_list_count(struct device_list *device_list);
 
+// After merge, added device list deleted.
+// Underlying ztex_dev_list's also merged.
 int device_list_merge(struct device_list *device_list, struct device_list *added_list);
 
 // Performs fpga_reset() on all FPGA's
+// It resets FPGAs to its post-configuration state with Global Set Reset (GSR).
+//
 // Return values:
 // < 0 error; would require heavier reset
 //
@@ -153,6 +167,11 @@ int device_fpga_reset(struct device *device);
 // < 0 error
 int device_check_bitstream_type(struct device *device, unsigned short bitstream_type);
 
+// Checks if bitstreams on devices are loaded and of specified type.
+// if (filename != NULL) performs upload in case of wrong or no bitstream
+// Returns: number of devices with bitstreams uploaded
+int device_list_check_bitstreams(struct device_list *device_list, unsigned short BITSTREAM_TYPE, const char *filename);
+
 // tests if bitstream from currently selected FPGA is operational and gets bitstream_type
 // Returns:
 // < 0 on I/O error
@@ -164,16 +183,24 @@ int fpga_test_get_id(struct fpga *fpga);
 // some application mode, does not directly affect I/O
 int fpga_set_app_mode(struct fpga *fpga, int app_mode);
 
+// set app_mode on every FPGA on every device in the list
+// Returns number of affected devices
+// On error, invalidates device and continues
+int device_list_set_app_mode(struct device_list *device_list, int app_mode);
+
+// Performs device_fpga_reset() on each device in the list
+int device_list_fpga_reset(struct device_list *device_list);
+
 // unlike ztex_select_fpga(), it waits for I/O timeout
 int fpga_select(struct fpga *fpga);
 
 // combines fpga_select(), fpga_get_io_state(), fpga_setup_output() in 1 USB request
 int fpga_select_setup_io(struct fpga *fpga);
 
-// in 8-byte words, default 0.
+// in OUTPUT_WORD_WIDTH words, default 0.
 // fpga_setup_output() would return 0 if amount in output buffer is less than limit_min.
 // if limit_min is greater than output buffer size, limit_min equal to buffer size is used.
-int fpga_set_output_limit_min(struct fpga *fpga, unsigned short limit_min);
+//int fpga_set_output_limit_min(struct fpga *fpga, unsigned short limit_min);
 
 
 // checks io_state (unless previously checked with fpga_select_setup_io)
@@ -183,5 +210,8 @@ int fpga_write(struct fpga *fpga);
 // requests read_limit (unless previously requested with fpga_select_setup_io) and performs read
 int fpga_read(struct fpga *fpga);
 
+// Synchronous write with pkt_comm
+int fpga_pkt_write(struct fpga *fpga);
 
-
+// Synchronous read with pkt_comm
+int fpga_pkt_read(struct fpga *fpga);

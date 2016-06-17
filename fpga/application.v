@@ -2,48 +2,57 @@
 
 module application(
 	input CLK,
-	input RESET,
+	//input RESET,
 	
 	// read from some internal FIFO (recieved via high-speed interface)
-	input [63:0] din,
+	//input [63:0] din,
+	input [7:0] din,
 	output rd_en,
 	input empty,
 
 	// write into some internal FIFO (to be send via high-speed interface)
-	output [63:0] dout,
+	//output [63:0] dout,
+	output [15:0] dout,
 	output wr_en,
 	input full,
-	output pkt_end,
+	//output pkt_end,
 	
 	// control input (VCR interface)
 	input [7:0] app_mode,
+	
 	// status output (VCR interface)
+	output [7:0] pkt_comm_status,
+	output [7:0] debug2,
 	output [7:0] app_status
 	);
 
+	assign pkt_comm_status = 8'h00;
+	assign debug2 = 8'h55;
 	assign app_status = 8'h00;
 	
+	// convert 8-bit to 16-bit
+	reg [15:0] dout_mode01;
+	reg dout_mode01_ready = 0;
+	reg counter = 0;
+
 	// Application: send what received
-	assign dout = din;
-	assign rd_en = do_rw;
-	assign wr_en = do_rw;
-	assign pkt_end = 1'b1;
+	assign dout = dout_mode01;
+	assign rd_en = ~empty & ~full;
+	assign wr_en = dout_mode01_ready;
 	
-	assign do_rw =
-		// Application mode 0 (default): send immediately
-		(app_mode == 8'h00) ? ~empty && ~full :
-		// Application mode 1: let's say we have some processing, 1 word in 16 clock cycles @30 MHz
-		(app_mode == 8'h01) ? ~empty && ~full && do_rw_ok :
-		1'b0;
-
-	reg [3:0] counter = 0;
-	wire do_rw_ok = counter == 15;
-
+	
 	always @(posedge CLK) begin
-		if (RESET) begin
-			counter <= 0;
+		if (counter == 0) begin
+			dout_mode01_ready <= 0;
 		end
-		else begin
+		if (rd_en && (app_mode == 8'h00 || app_mode == 8'h01) ) begin
+			if (counter == 0) begin
+				dout_mode01[7:0] <= din;
+			end
+			else if (counter == 1) begin
+				dout_mode01[15:8] <= din;
+				dout_mode01_ready <= 1;
+			end
 			counter <= counter + 1'b1;
 		end
 	end

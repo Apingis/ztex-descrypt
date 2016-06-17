@@ -43,6 +43,7 @@ Examples/inouttraffic uses following approach:
 - Cygwin (on Windows)
 - libusb-1.0
 - gcc-core
+- WinUSB driver (used Zadig 2.2 to install)
 
 ### 6. Test measurements ###
 

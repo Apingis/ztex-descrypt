@@ -117,7 +117,7 @@ void test_hs_inout(struct libusb_device_handle *handle, int buf_size, int pkt_co
 			break;
 		}
 		else {
-			//if (DEBUG) fprintf(stderr,"usb_bulk_read: %d\n", result);
+			//if (DEBUG) fprintf(stderr,"usb_bulk_read: transferred %d, res %d\n", transferred, result);
 			read_ok = 1;
         		for (i = 0; i < transferred; i+=8, data_in++) {
 				unsigned long long tmp = buf_in[i] | (buf_in[i+1] << 8) | (buf_in[i+2] << 16) | (buf_in[i+3] << 24);
@@ -179,7 +179,7 @@ void main(int argc, char **argv)
 	}
 
 	// Inouttraffic bitstreams have High-Speed interface disabled by default.
-	// fpga_reset() enables High-Speed interface, also clears internal buffers.
+	// fpga_reset() enables High-Speed interface.
 	result = fpga_reset(handle); 
 	if (result < 0) {
 		fprintf(stderr, "fpga_reset() returns %d, usb_strerror: %s\n", result, libusb_strerror(result));
@@ -203,15 +203,19 @@ void main(int argc, char **argv)
 
 	// FPGA application operates High-Speed interface with 8-byte words,
 	// expects you don't write unaligned
-	test_hs_inout(handle, 128, 8*1024*(test_factor > 4 ? 4 : test_factor));
+	test_hs_inout(handle, 128, 4*1024*(test_factor > 4 ? 4 : test_factor));
 
-	test_hs_inout(handle, 1024, 4*1024*(test_factor > 16 ? 16 : test_factor));
+	// "-8" or anything unaligned to buffer size (512) would test PKTEND of Slave FIFO
+	test_hs_inout(handle, 1024, 2*1024*(test_factor > 16 ? 16 : test_factor));
 
-	test_hs_inout(handle, 8192, 1*1024*test_factor);
+	test_hs_inout(handle, 8192-8, 1*1024*test_factor);
 
-	printf("Using max. r/w size: 16K input + (8K -8B) output FPGA buffers + 2* 2K USB device controller's buffers\n");
+	//printf("Using max. r/w size: 16K input + (8K -8B) output FPGA buffers + 2* 2K USB device controller's buffers\n");
 	// It predictably returns with USB_ETIMEDOUT if 8 more bytes added.
-	test_hs_inout(handle, 16384 +8192-8 +2*2048, 1*1024/2*test_factor);
+	//test_hs_inout(handle, 16384 +8192-8 +2*2048, 1*1024/2*test_factor);
+	
+	// FPGA's I/O buffers increased to 32K each
+	test_hs_inout(handle, 65536, 1024/4 * test_factor);
 
 	test_select_fpga(dev, 4096*(test_factor > 8 ? 8 : test_factor));
 

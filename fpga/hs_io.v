@@ -49,18 +49,20 @@ module hs_io #(
 
 	// status information
 	output [7:0] io_timeout, // in ~1us intervals @30MHz IFCLK
-	output sfifo_not_empty
+	output sfifo_not_empty,
+	output io_fsm_error
 	);
 
 	wire ENABLE = EN && CS;
 	
 	assign sfifo_not_empty = FLAGC;
+	assign io_fsm_error = 1'b0;
 
-	// Input register.
-	(* KEEP="true" *) reg [15:0] dout_r;
-	assign dout = dout_r;
+	// Input register (data-out from hs_io)
+	(* KEEP="true" *) reg [15:0] input_r;
+	assign dout = input_r;
 	always @(posedge IFCLK)
-		dout_r <= FIFO_DATA_IN;
+		input_r <= FIFO_DATA_IN;
 	
 	(* KEEP_HIERARCHY="true" *) hs_io_logic hs_io_logic_inst(
 		.IFCLK(IFCLK), .ENABLE(ENABLE),
@@ -122,10 +124,21 @@ module hs_io_logic (
 	reg [TIMEOUT_MSB:0] timeout = 0;//{TIMEOUT_MSB+1{1'b1}};
 	assign io_timeout = timeout[TIMEOUT_MSB : TIMEOUT_MSB-7];
 
-	wire READ_OK = (!full && FLAGC && ENABLE);// && word_counter < USB_PKT_SIZE);
-	wire WRITE_OK = (!empty && FLAGB && ENABLE && word_counter < USB_PKT_SIZE);
-	wire PKTEND_OK = (empty && FLAGB && ENABLE && word_counter > 0 && word_counter < USB_PKT_SIZE);
+	// Finally deal with PKTEND issue.
+	// - when output FIFO is in mode_limit, there's no problem:
+	// FIFO already has all the data, so it outputs every cycle
+	// until EMPTY.
+	// - when mode_limit is off, the data might arrive from FPGA's output FIFO
+	// in small pieces such as 2-8 bytes or so, with intervals like 2-4 cycles.
+	// That might result in partial reads by the host and overall performance degradation.
+	// 
+	localparam PKTEND_WR_TIMEOUT = 5;
+	reg [2:0] rw_timeout = 0;
 
+	wire READ_OK = (!full && FLAGC && ENABLE);// && word_counter < USB_PKT_SIZE);
+	wire WRITE_OK = (!empty && FLAGB && ENABLE && word_counter != USB_PKT_SIZE);
+	//wire PKTEND_OK = (empty && FLAGB && ENABLE && word_counter > 0 && word_counter < USB_PKT_SIZE);
+	
 	localparam IO_STATE_RESET = 1;
 	localparam IO_STATE_READ_SETUP0 = 2;
 	localparam IO_STATE_READ_SETUP1 = 3;
@@ -136,6 +149,7 @@ module hs_io_logic (
 	localparam IO_STATE_WR_SETUP2 = 9;
 	localparam IO_STATE_WR = 11;
 	localparam IO_STATE_DISABLED = 13;
+	localparam IO_STATE_WR_WAIT = 14;
 	
 	(* FSM_EXTRACT="YES" *)//,FSM_ENCODING="auto" *)
 	reg [3:0] io_state = IO_STATE_RESET;
@@ -195,9 +209,21 @@ module hs_io_logic (
 			if (WRITE_OK) begin
 				word_counter <= word_counter + 1'b1;
 				timeout <= 0;
+				rw_timeout <= 0;
 			end
-			else
-				io_state <= IO_STATE_READ_SETUP0;
+			else begin
+				if (!FLAGB || word_counter == USB_PKT_SIZE || word_counter == 0)
+					io_state <= IO_STATE_READ_SETUP0;
+
+				else if (rw_timeout == PKTEND_WR_TIMEOUT)
+					io_state <= IO_STATE_WR_WAIT;
+
+				rw_timeout <= rw_timeout + 1'b1;
+			end
+		end
+		
+		IO_STATE_WR_WAIT: begin
+			io_state <= IO_STATE_READ_SETUP0;
 		end
 		
 		IO_STATE_DISABLED: begin
@@ -212,7 +238,7 @@ module hs_io_logic (
 	assign IO_WRITE_OK = io_state == IO_STATE_WR && WRITE_OK;
 	
 	assign IO_SLOE_OK = (io_state == IO_STATE_READ_SETUP2 || io_state == IO_STATE_READ);
-	assign IO_PKTEND_OK = io_state == IO_STATE_WR && PKTEND_OK;
+	assign IO_PKTEND_OK = io_state == IO_STATE_WR_WAIT;//IO_STATE_WR && PKTEND_OK;
 	
 endmodule
 

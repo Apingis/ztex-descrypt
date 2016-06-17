@@ -172,7 +172,7 @@ void ztex_device_delete(struct ztex_device *dev)
 
 void ztex_device_invalidate(struct ztex_device *dev)
 {
-	if (!dev)
+	if (!dev || !dev->valid)
 		return;
 	dev->valid = 0;
 	if (dev->handle)
@@ -522,7 +522,9 @@ int ztex_configureFpgaHS(struct ztex_device *dev, FILE *fp, int endpointHS)
 	unsigned char buf[transactionBytes];
 	int transferred;
 
-	ztex_reset_fpga(dev);
+	result = ztex_reset_fpga(dev);
+	if (result < 0)
+		return result;
 
 	// VC 0x34: initHSFPGAConfiguration
 	result = vendor_command(dev->handle, 0x34, 0, 0, NULL, 0);
@@ -555,6 +557,11 @@ int ztex_configureFpgaHS(struct ztex_device *dev, FILE *fp, int endpointHS)
 	
 	// VC 0x35: finishHSFPGAConfiguration
 	result = vendor_command(dev->handle, 0x35, 0, 0, NULL, 0);
+	if (result < 0) {
+		ztex_error("SN %s: finishHSFPGAConfiguration returns %d (%s)\n",
+				dev->snString, result, libusb_strerror(result));
+		return result;
+	}
 
 	if (ZTEX_DEBUG) {
 		result = ztex_getFpgaState(dev, &fpga_state);
@@ -645,12 +652,17 @@ int ihx_load_data(struct ihx_data *ihx_data, FILE *fp)
 	rewind(fp);
 	char *file_data = malloc(file_size);
 	if (!file_data) {
+		ztex_error("ihx_load_data: malloc(%d) failed\n", file_size);
 		return -1;
 	}
 	
 	int offset = 0;
 	do {
 		int length = fread(file_data + offset, 1, file_size, fp);
+		if (ferror(fp)) {
+			ztex_error("ihx_load_data: fread: %s\n", strerror(errno));
+			return -1;
+		}
 		offset += length;
 	} while ( !feof(fp) );
 
@@ -752,7 +764,7 @@ int ztex_reset_cpu(struct ztex_device *dev, int r)
 	return 1;
 }
 
-int ztex_upload_firmware(struct ztex_device *dev, struct ihx_data *ihx_data)
+int ztex_firmware_upload_ihx(struct ztex_device *dev, struct ihx_data *ihx_data)
 {
 	const int transactionBytes = 4096;
 	char buf[transactionBytes];
@@ -811,13 +823,36 @@ int ztex_upload_firmware(struct ztex_device *dev, struct ihx_data *ihx_data)
 		i += j;
 	} // for ( i < IHX_SIZE_MAX; )
 	
-	if (ZTEX_DEBUG) printf("SN %s firmware uploaded: %d bytes\n",
+	if (ZTEX_DEBUG) printf("SN %s uploaded %d bytes\n",
 			dev->snString, uploaded);
 
 	result = ztex_reset_cpu(dev, 0);
 	if (result < 0)
 		return -1;
 	return 0;
+}
+
+int ztex_firmware_upload(struct ztex_device *dev, const char *filename)
+{
+	int result;
+	FILE *fp;
+	if ( !(fp = fopen(filename, "r")) ) {
+		printf("fopen(%s): %s\n", filename, strerror(errno));
+		return -1;
+	}
+	if (ZTEX_DEBUG) {
+		printf("SN %s: uploading firmware (%s).. ", dev->snString, filename);
+		fflush(stdout);
+	}
+	struct ihx_data ihx_data;
+	result = ihx_load_data(&ihx_data, fp);
+	fclose(fp);
+	if (result < 0) {
+		return -1;
+	}
+	
+	result = ztex_firmware_upload_ihx(dev, &ihx_data);
+	return result;
 }
 
 void ztex_device_reset(struct ztex_device *dev)

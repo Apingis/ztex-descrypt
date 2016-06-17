@@ -22,7 +22,7 @@
 // configure endpoint 2, in, quad buffered, 512 bytes, interface 0
 EP_CONFIG(2,0,BULK,IN,512,4);
 
-// configure endpoint 6, out, doublebuffered, 512 bytes, interface 0
+// configure endpoint 6, out, quad buffered, 512 bytes, interface 0
 EP_CONFIG(6,0,BULK,OUT,512,4);
 
 // select ZTEX USB FPGA Module 1.15 as target  (required for FPGA configuration)
@@ -36,32 +36,15 @@ ENABLE_HS_FPGA_CONF(6);
 
 // this is called automatically after FPGA configuration
 #define[POST_FPGA_CONFIG][POST_FPGA_CONFIG
-	OEA = bmBIT0 | bmBIT1 | bmBIT7;
-	IOA0 = 0; IOA1 = 0; IOA7 = 0;
-
-	// configured by fifo_reset()
-	//EP2FIFOCFG = bmBIT3 | bmBIT0; SYNCDELAY;        // AOTUOIN, WORDWIDE
-	//EP6FIFOCFG = bmBIT4 | bmBIT0; SYNCDELAY;        // AUTOOUT, WORDWIDE
-
-	EP2CS &= ~bmBIT0;                       // clear stall bit
-	EP6CS &= ~bmBIT0;                       // clear stall bit
-
-	REVCTL = 0x3; SYNCDELAY;
-
-	IFCONFIG = bmBIT7 | bmBIT5 | 3; SYNCDELAY;// internal IFCLK, 30 MHz, OE, slave FIFO interface
-
-	fifo_reset();
-
-	FIFOPINPOLAR = 0; SYNCDELAY;
-	// Bits [7:4] FlagB / Flag D
-	// Bits [3:0] FlagA / Flag C
-	// 1100 EP2 Full  {0xC}
-	// 1010 EP6 Empty {0xA}
-	PINFLAGSAB = 0xC0; SYNCDELAY;
-	PINFLAGSCD = 0x0A; SYNCDELAY;
+	// During High-Speed FPGA configuration
+	// IFCLK is set to 48 MHz.
+	init_IO();
 ]
 
 void fifo_reset() {
+	EP2CS &= ~bmBIT0;                       // clear stall bit
+	EP6CS &= ~bmBIT0;                       // clear stall bit
+
 	FIFORESET = 0x80; SYNCDELAY;
 	EP6FIFOCFG = 0x00; SYNCDELAY; //switching to manual mode
 	FIFORESET = 6; SYNCDELAY;
@@ -78,6 +61,45 @@ void fifo_reset() {
 	EP2FIFOCFG = bmBIT3 | bmBIT0; SYNCDELAY;        // AOTUOIN, WORDWIDE
 	FIFORESET = 0x00; SYNCDELAY;  //Release NAKALL
 }
+
+void init_IO() {
+	OEA = bmBIT0 | bmBIT1 | bmBIT7;
+	IOA0 = 0; IOA1 = 0; IOA7 = 0;
+
+	REVCTL = 0x3; SYNCDELAY;
+
+	// internal IFCLK, OE, slave FIFO interface
+	// bit6: 48 MHz
+	IFCONFIG = bmBIT7 | bmBIT6 | bmBIT5 | 3; SYNCDELAY;
+
+	fifo_reset();
+
+	PORTACFG = 0x00; SYNCDELAY; // used PA7/FLAGD as a port pin, not as a FIFO flag
+	FIFOPINPOLAR = 0; SYNCDELAY; // set all slave FIFO interface pins as active low
+
+	// EZ-USB automatically commits data in 512-byte chunks
+	EP2AUTOINLENH = 0x02; SYNCDELAY;
+	EP2AUTOINLENL = 0x00; SYNCDELAY;
+
+	// Bits [7:4] FlagB / Flag D
+	// Bits [3:0] FlagA / Flag C
+	// 0100 EP2 PF (prog.full) {0x8}
+	// 1100 EP2 Full  {0xC}
+	// 1010 EP6 Empty {0xA}
+	PINFLAGSAB = 0xC8; SYNCDELAY;
+	PINFLAGSCD = 0x0A; SYNCDELAY;
+
+	// Programmable-level Flag (PF)
+	EP2FIFOPFH = bmBIT6 | 0; SYNCDELAY;
+	EP2FIFOPFL = 0; SYNCDELAY;//510 % 256; SYNCDELAY;
+}
+
+//===========================================================
+// Vendor Commands / Requests 0xA0-0xAF reserved by Cypress
+// 0xA0 upload firmware
+// 0xA1-0xAF reserved
+//===========================================================
+
 //-----------------------------------------------
 // VC 0x71 : write to fpga
 // multi-byte write
@@ -158,33 +180,33 @@ ADD_EP0_VENDOR_REQUEST((0x85,,
 // fpga_reset();
 ADD_EP0_VENDOR_COMMAND((0x8B,,
 	fpga_set_addr(0x81); // 1. disable r/w
-	fpga_set_addr(0x8B); // 2. reset FPGA's internal buffers & i/o subsystem
+	fpga_set_addr(0x8B); // 2. reset FPGA with Global Set Reset (GSR)
 	fifo_reset(); // 3. reset ez-usb fifo, invalidate data
 	fpga_set_addr(0x80); // 4. enable r/w
 ,,
 ));;
-// fpga_hs_io_enable()
+// fpga_hs_io_enable/disable()
 ADD_EP0_VENDOR_COMMAND((0x80,,
 	fpga_set_addr(SETUPDAT[2] ? 0x80 : 0x81);
 ,,
 ));;
-// fpga_output_limit_enable()
+// fpga_output_limit_enable/disable()
 ADD_EP0_VENDOR_COMMAND((0x86,,
 	fpga_set_addr(SETUPDAT[2] ? 0x86 : 0x87);
 ,,
 ));;
 // fpga_set_output_limit_min()
-ADD_EP0_VENDOR_COMMAND((0x83,,
-	fpga_set_addr(0x83);
-	IOA1 = 0;
-	IOC = SETUPDAT[2];
-	IOA1 = 1;
-	IOA1 = 0;
-	IOC = SETUPDAT[3];
-	IOA1 = 1;
-	IOA1 = 0;
-,,
-));;
+//ADD_EP0_VENDOR_COMMAND((0x83,,
+//	fpga_set_addr(0x83);
+//	IOA1 = 0;
+//	IOC = SETUPDAT[2];
+//	IOA1 = 1;
+//	IOA1 = 0;
+//	IOC = SETUPDAT[3];
+//	IOA1 = 1;
+//	IOA1 = 0;
+//,,
+//));;
 
 void fpga_test_get_id()
 {
@@ -203,7 +225,7 @@ void fpga_test_get_id()
 	fpga_set_addr(0xA1);//VCR_GET_ID_DATA
 	ep0_read_data (6,2);
 }
-// fpga_test_get_id() //echo_request()
+// fpga_test_get_id()
 ADD_EP0_VENDOR_REQUEST((0x88,,
 	fpga_test_get_id();
 	ep0_commit();
@@ -265,10 +287,13 @@ ADD_EP0_VENDOR_REQUEST((0x8C,,
 
 void main(void)
 {
-	OEA = bmBIT0 | bmBIT1 | bmBIT7;
-	IOA0 = 0; IOA1 = 0; IOA7 = 0;
-
+	// on startup, CPU frequency is 12 MHz.
+	// init_USB() sets 48 MHz and enables clock output
+	// (available as FXCLK on FPGA)
 	init_USB();
+
+	// Delay initialization until POST_FPGA_CONFIG
+	//init_IO();
 
 	while (1) {
 	}
