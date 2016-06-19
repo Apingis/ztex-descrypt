@@ -90,8 +90,9 @@ void init_IO() {
 	PINFLAGSCD = 0x0A; SYNCDELAY;
 
 	// Programmable-level Flag (PF)
+	// Active when zero bytes in endpoint buffer
 	EP2FIFOPFH = bmBIT6 | 0; SYNCDELAY;
-	EP2FIFOPFL = 0; SYNCDELAY;//510 % 256; SYNCDELAY;
+	EP2FIFOPFL = 0; SYNCDELAY;
 }
 
 //===========================================================
@@ -239,6 +240,7 @@ void select_fpga ( BYTE fn );
 // fpga_select(): waits for i/o timeout before select_fpga()
 void fpga_select(BYTE fpga_num) {
 	BYTE timeout;
+	BYTE counter = 0;
 	if (select_num == fpga_num)
 		return;
 	for (;;) {
@@ -247,11 +249,14 @@ void fpga_select(BYTE fpga_num) {
 		IOA7 = 1; // read fpga
 
 		IOA1 = 0;
-		timeout = IOC;
 		IOA1 = 1;
 		IOA1 = 0;
+		// io_timeout is the 2nd byte from FPGA's vcr_io address 0x84
 		timeout = IOC;
 		if (timeout)
+			break;
+		// evade hang-up on buggy bitstream
+		if (counter++ == 255)
 			break;
 		NOP; NOP; NOP; NOP; NOP;
 	}

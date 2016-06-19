@@ -4,6 +4,8 @@
 //
 // High-Speed communtcation to USB device controller's Slave FIFO
 //
+// For Slave FIFO's signaling and timing diagram, see CY7C68013-56PVC-Datasheet
+//
 // Version 1 comment:
 //
 // It is implemented on a state machine with outputs dependent on both input
@@ -82,6 +84,7 @@ module hs_io_v2 #(
 
 
 	// FIFOADR (Address for USB endpoint buffer)
+	// - at 48 MHz, sometimes takes 2 cycles to propagate
 	localparam USB_EP_OUT_B = (USB_ENDPOINT_OUT-2) >> 1;
 	localparam USB_EP_IN_B = (USB_ENDPOINT_IN-2) >> 1;
 	assign {FIFOADR1, FIFOADR0} =
@@ -110,7 +113,6 @@ module hs_io_v2 #(
 	assign SLOE = out_z_wait1 ? 1'bz : SLOE_R;
 
 	(* IOB="true" *) reg SLRD_R = 1;
-	//OBUFT SLRD_obuft (.O(SLRD), .I(SLRD_R), .T(~CS));
 	assign SLRD = out_z_wait1 ? 1'bz : SLRD_R;
 	
 	// input_r_ok indicates there was read last cycle (SLRD was active)
@@ -139,6 +141,7 @@ module hs_io_v2 #(
 	assign SLWR = out_z_wait1 ? 1'bz : SLWR_R;
 	
 	// FPGA's output register.
+	// valid data must be present on output 9.2 ns before write
 	(* IOB="true" *) reg [15:0] output_r;
 	// Tristate-enable FF inside OLOGIC component
 	(* IOB="true" *) reg out_z = 1;
@@ -222,23 +225,22 @@ module hs_io_v2 #(
 				io_state <= IO_STATE_WR_SETUP0;
 			else begin
 				io_state <= IO_STATE_READ_SETUP1;
-				rw_direction <= 0;
 			end
 		end
 
 		IO_STATE_READ_SETUP1: begin
-			SLOE_R <= 0;
 			io_state <= IO_STATE_READ_SETUP2;
 		end
 
 		IO_STATE_READ_SETUP2: begin
+			// must assert 18.7 ns before read
+			SLOE_R <= 0;
 			SLRD_R <= 0;
 			io_state <= IO_STATE_READ;
 		end
 		
 		IO_STATE_READ: begin
 			if (!almost_full & FLAGC_R) begin
-				//word_counter <= word_counter + 1'b1;
 				timeout <= 0;
 			end
 			else begin
@@ -269,6 +271,7 @@ module hs_io_v2 #(
 		end
 		
 		IO_STATE_WR_SETUP2: begin
+			// must assert 18.1 ns before write
 			SLWR_R <= 0;
 			io_state <= IO_STATE_WR;
 		end
@@ -283,6 +286,7 @@ module hs_io_v2 #(
 				
 			if (word_counter == USB_PKT_SIZE - 1) begin
 				SLWR_R <= 1;
+				rw_direction <= 0;
 				io_state <= IO_STATE_READ_SETUP0;
 			end
 			else if (empty) begin
@@ -307,6 +311,7 @@ module hs_io_v2 #(
 		
 		IO_STATE_PKT_COMMIT: begin
 			PKTEND_R <= 1;
+			rw_direction <= 0;
 			io_state <= IO_STATE_READ_SETUP0;
 		end
 		
