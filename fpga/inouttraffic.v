@@ -2,12 +2,12 @@
 
 // *************************************************************
 //
-// 20.03.2016
+// Improved version: 30.07.2016
+//
+// Original release: 20.03.2016
 //
 // ISE version: 14.5
 // Design Goals & Strategies:
-// * Strategy: Default (Balanced)
-// * Edit -> "Generate Programming File" -> "unused IOB pins" -> "Float"  <-- fixed by defining INT outputs
 // 
 // definitions.vh -> "Source Properties" -> "Include as Global File in Compile List"
 //
@@ -18,11 +18,9 @@
 module inouttraffic(
 	input CS_IN,
 	input [2:0] FPGA_ID,
-	// It switches IFCLK to 48 MHz when it uploads bitstream.
-	// On other FPGAs, CS is low at that time.
+
+	// Both IFCLK_IN and FXCLK_IN are at 48 MHz.
 	input IFCLK_IN,
-	
-	// suggest FXCLK as a clock source for application.
 	input FXCLK_IN,
 
 	// Vendor Command/Request I/O
@@ -48,16 +46,16 @@ module inouttraffic(
 	);
 
 
-	clocks #(
-		.PKT_COMM_FREQUENCY(216)
-	) clocks(
+	clocks clocks(
 		// Input clocks go to Clock Management Tile via dedicated routing
 		.IFCLK_IN(IFCLK_IN),
 		.FXCLK_IN(FXCLK_IN),
 		// Produced clocks
 		.IFCLK(IFCLK), 	// for operating I/O pins
-		.PKT_COMM_CLK(PKT_COMM_CLK) // for processing data packets
-		//.APP_CLK(APP_CLK)		// for running the application
+		.PKT_COMM_CLK(PKT_COMM_CLK), // for processing data packets
+		.WORD_GEN_CLK(WORD_GEN_CLK), // word generator (generation part)
+		.CORE_CLK(CORE_CLK),	// for running application core
+		.CMP_CLK(CMP_CLK)		// for running comparators
 	);
 
 	chip_select chip_select(
@@ -78,10 +76,10 @@ module inouttraffic(
 	
 	input_fifo input_fifo(
 		.wr_clk(IFCLK),
-		.din( {hs_input_din[7:0],hs_input_din[15:8]} ), // wired to Cypress IO
-		.wr_en(hs_input_wr_en), // wired to Cypress IO
-		.full(),//hs_input_full), // wired to Cypress IO
-		.almost_full(hs_input_almost_full), // wired to Cypress IO
+		.din( {hs_input_din[7:0],hs_input_din[15:8]} ), // to Cypress IO
+		.wr_en(hs_input_wr_en), // to Cypress IO
+		.full(), // to Cypress IO
+		.almost_full(hs_input_almost_full), // to Cypress IO
 		.prog_full(hs_input_prog_full),
 
 		.rd_clk(PKT_COMM_CLK),
@@ -102,10 +100,12 @@ module inouttraffic(
 	wire [7:0] app_mode;
 	wire [7:0] app_status, pkt_comm_status;
 	
-	//pkt_comm pkt_comm(
-	application application(
+	pkt_comm pkt_comm(
+	//application application(
 		.CLK(PKT_COMM_CLK),
-		//.APP_CLK(APP_CLK),
+		.WORD_GEN_CLK(WORD_GEN_CLK),
+		.CORE_CLK(CORE_CLK),
+		.CMP_CLK(CMP_CLK),
 		// High-Speed FPGA input
 		.din(hs_input_dout),
 		.rd_en(hs_input_rd_en),
@@ -128,7 +128,7 @@ module inouttraffic(
 	// Output buffer (via High-Speed interface)
 	//
 	// ********************************************************
-	wire [15:0] output_limit;//, output_limit_min;
+	wire [15:0] output_limit;
 	wire [15:0] output_dout; // output via High-Speed Interface
 
 	output_fifo output_fifo(
@@ -138,14 +138,11 @@ module inouttraffic(
 		.full(app_full),
 
 		.rd_clk(IFCLK),
-		.dout(output_dout), // wired to Cypress IO,
-		.rd_en(output_rd_en), // wired to Cypress IO,
-		.empty(output_empty), // wired to Cypress IO
-		//.pkt_end(app_pkt_end),
-		//.err_overflow(output_err_overflow),
+		.dout(output_dout), // to Cypress IO,
+		.rd_en(output_rd_en), // to Cypress IO,
+		.empty(output_empty), // to Cypress IO
 		.mode_limit(output_mode_limit),
 		.reg_output_limit(reg_output_limit),
-		//.output_limit_min(output_limit_min),
 		.output_limit(output_limit),
 		.output_limit_not_done(output_limit_not_done)
 	);
@@ -171,23 +168,8 @@ module inouttraffic(
 		.io_timeout(hs_io_timeout), .sfifo_not_empty(sfifo_not_empty),
 		.io_fsm_error(io_fsm_error), .io_err_write(io_err_write)
 	);
-/*
-	wire ENABLE_HS_IO = CS && hs_en && !RESET;
-	assign FIFO_DATA = (ENABLE_HS_IO && hs_io_rw_direction) ? output_dout : 16'bz;
-	wire [7:0] hs_io_timeout;
-	
-	(* KEEP_HIERARCHY="true" *) hs_io #(
-		.USB_ENDPOINT_IN(2),
-		.USB_ENDPOINT_OUT(6)
-	) hs_io_inst(
-		.IFCLK(IFCLK), .CS(CS), .EN(ENABLE_HS_IO), .FIFO_DATA_IN(FIFO_DATA), .FIFOADR0(FIFOADR0), .FIFOADR1(FIFOADR1),
-		.SLOE(SLOE), .SLRD(SLRD), .SLWR(SLWR), .PKTEND(PKTEND), .FLAGB(FLAGB), .FLAGC(FLAGC),
-		.dout(hs_input_din), .rw_direction(hs_io_rw_direction),
-		.wr_en(hs_input_wr_en), .almost_full(hs_input_almost_full),// data output from Cypress IO, received by FPGA
-		.rd_en(output_rd_en), .empty(output_empty), // to Cypress IO, out of FPGA
-		.io_timeout(hs_io_timeout), .sfifo_not_empty(sfifo_not_empty)
-	);
-*/
+
+
 	// ********************************************************
 	//
 	// Vendor Command/Request (VCR) I/O interface
@@ -204,7 +186,6 @@ module inouttraffic(
 		// various inputs to be read by CPU
 		.FPGA_ID(FPGA_ID),
 		.hs_io_timeout(hs_io_timeout), .hs_input_prog_full(hs_input_prog_full),
-		//.output_err_overflow(output_err_overflow), 
 		.sfifo_not_empty(sfifo_not_empty), .io_fsm_error(io_fsm_error), .io_err_write(io_err_write),
 		.output_limit(output_limit), .output_limit_not_done(output_limit_not_done),
 		.app_status(app_status),
@@ -212,7 +193,6 @@ module inouttraffic(
 		// various control wires
 		.hs_en(hs_en),
 		.output_mode_limit(output_mode_limit),
-		//.output_limit_min(output_limit_min),
 		.reg_output_limit(reg_output_limit),
 		.app_mode(app_mode),
 		.RESET_OUT()

@@ -1,3 +1,17 @@
+### Version 30.07.16 improvements ###
+
+Added some abstraction layer over existing API for purposes:
+
+- Hide implementation details from the developer, such as details of operation of multi-FPGA board or link layer communication details;
+- Allow host software and FPGA application to organize communication in a sequence of packets. On FPGA side, different packets might be directed into different subsystems of the application.
+
+Example application includes:
+
+- Processing of list of words;
+- Generation of words;
+- Output of results.
+
+
 ### 1. Overview ###
 
 Examples/inouttraffic application for Ztex 1.15y FPGA board.

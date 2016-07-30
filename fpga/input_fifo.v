@@ -46,13 +46,14 @@ module input_fifo(
 	//
 	// fifo_16in_8out is large in size and its memory blocks are scattered over large area.
 	// That's unable to operate at high frequency such as 200 MHz because of routing delay.
+	// An additional small FIFO is append.
 	//
 
 	// FIFO Generator v9.3
-	// * Independent Clocks - Distributed RAM
+	// * Independent Clocks
 	// * 1st word Fall-Through
 	// * Reset: off
-	fifo_dram_async_8 fifo_dram_async_8(
+	fifo_bram_8x1024_fwft fifo_bram_8x1024_fwft(
 		.wr_clk(wr_clk),
 		.din(din_stage2),
 		.wr_en(tx_stage2),

@@ -153,7 +153,7 @@ int partial_read_count = 0;
 // output buffer is 32K minus 1 word (32766 bytes)
 //int min_len = 514, max_len = 514;//16384;
 //int min_len = 8192, max_len = 8192;
-int min_len = 64, max_len = 16384;
+int min_len = 8192, max_len = 16384;
 
 int device_fpgas_rw(struct device *device)
 {

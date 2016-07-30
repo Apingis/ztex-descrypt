@@ -1,0 +1,22 @@
+AREA_GROUP "word_gen" RANGE=SLICE_X110Y80:SLICE_X119Y95,SLICE_X120Y86:SLICE_X123Y89;
+INST "pkt_comm/word_gen/*" AREA_GROUP = "word_gen";
+
+AREA_GROUP "word_gen_ranges" RANGE=RAMB8_X5Y40:RAMB8_X5Y47;
+AREA_GROUP "word_gen_ranges" RANGE=SLICE_X120Y80:SLICE_X123Y95;
+INST "pkt_comm/word_gen/char_ranges[*].word_gen_char_range/*" AREA_GROUP="word_gen_ranges";
+
+AREA_GROUP "word_gen_backyard" RANGE=SLICE_X124Y80:SLICE_X127Y95;
+INST "pkt_comm/word_gen/char_ranges[*].word_gen_char_range/start_idx*" AREA_GROUP="word_gen_backyard";
+INST "pkt_comm/word_gen/char_ranges[*].word_gen_char_range/num_chars_*_r" AREA_GROUP="word_gen_backyard";
+
+NET "pkt_comm/word_gen/char_ranges[*].word_gen_char_range/start_idx*" TIG;
+NET "pkt_comm/word_gen/char_ranges[*].word_gen_char_range/num_chars_*_r" TIG;
+
+AREA_GROUP "word_gen_side" RANGE=SLICE_X118Y80:SLICE_X119Y85,SLICE_X118Y90:SLICE_X119Y95;
+INST "pkt_comm/word_gen/char_ranges[*].word_gen_char_range/dout_r2*" AREA_GROUP="word_gen_side";
+
+INST "pkt_comm/word_gen/word_full" LOC=SLICE_X120Y87;
+INST "pkt_comm/word_gen/op_state_FSM_FFd5" LOC=SLICE_X121Y88;
+INST "pkt_comm/word_gen/op_state_FSM_FFd9" LOC=SLICE_X120Y89;
+
+

@@ -7,7 +7,7 @@
 
 #include "ztex.h"
 #include "inouttraffic.h"
-#include "pkt_comm.h"
+#include "pkt_comm/pkt_comm.h"
 
 
 int DEBUG = 0;
@@ -120,8 +120,8 @@ struct device *device_new(struct ztex_device *ztex_device)
 
 void device_delete(struct device *device)
 {
-	 device_invalidate(device);
-	 free(device);
+	device_invalidate(device);
+	free(device);
 }
 
 // device usually invalidated if there's some error
@@ -131,6 +131,13 @@ void device_invalidate(struct device *device)
 	if (!device || !device->valid)
 		return;
 	device->valid = 0;
+
+	int i;
+	for (i = 0; i < device->num_of_fpgas; i++) {
+		if (device->fpga[i].comm)
+			pkt_comm_delete(device->fpga[i].comm);
+	}
+
 	libusb_release_interface(device->handle, 0);
 	ztex_device_invalidate(device->ztex_device);
 }
@@ -598,7 +605,7 @@ int fpga_read(struct fpga *fpga)
 	return rd->read_limit;
 }
 
-/*
+
 // Synchronous write with pkt_comm (packet communication)
 int fpga_pkt_write(struct fpga *fpga)
 {
@@ -626,14 +633,18 @@ int fpga_pkt_write(struct fpga *fpga)
 	}
 	wr->io_state_valid = 0; // io_state is used
 
-	if (io_state->io_state & IO_STATE_OUTPUT_ERR_OVERFLOW) {
-		return ERR_IO_STATE_OVERFLOW;
-	}
-	if ( !(io_state->io_state & IO_STATE_OUTPUT_LIMIT_DONE)) {
+	//if (io_state->io_state & IO_STATE_OUTPUT_ERR_OVERFLOW) {
+	//	return ERR_IO_STATE_OVERFLOW;
+	//}
+	if (io_state->io_state & IO_STATE_LIMIT_NOT_DONE) {
 		return ERR_IO_STATE_LIMIT_NOT_DONE;
 	}
 	if (io_state->io_state & IO_STATE_SFIFO_NOT_EMPTY) {
 		return ERR_IO_STATE_SFIFO_NOT_EMPTY;
+	}
+	if (io_state->io_state & ~IO_STATE_INPUT_PROG_FULL) {
+		printf("Unknown error: io_state=0x%02X\n", io_state->io_state);
+		return -1;
 	}
 	if (io_state->io_state & IO_STATE_INPUT_PROG_FULL) {
 		if (DEBUG) printf("#%d fpga_write_do(): Input full\n", fpga->num);
@@ -694,6 +705,8 @@ int fpga_pkt_read(struct fpga *fpga)
 
 	// get input buffer
 	unsigned char *input_buf = pkt_comm_input_get_buf(fpga->comm);
+	if (fpga->comm->error)
+		return -1;
 	if (!input_buf)
 		return 0;
 	
@@ -726,22 +739,22 @@ int fpga_pkt_read(struct fpga *fpga)
 	rd->read_count++;
 	rd->rd_done = 1;
 	rd->len = rd->read_limit;
-
+/*
+	// did read into buffer.
+	int i, j;
+	for (i=0; i < rd->read_limit; i++) {
+		//if (!input_buf[i])
+		//	printf(" ");
+		//else
+		if (i && !(i%8)) printf("\n");
+			printf("%d ", input_buf[i]);
+	}
+	printf("\n");
+*/	
 	result = pkt_comm_input_completed(fpga->comm, rd->read_limit, 0);
+
 	if (result < 0)
 		return result;
-
-	
-	// did read into buffer.
-//	int i, j;
-//	for (i=0; i < rd->read_limit; i++) {
-//		if (!rd->buf[i])
-//			printf(" ");
-//		else
-//			printf("%c", rd->buf[i]);
-//	}
-//	printf("\n");
-	
 	return rd->read_limit;
 }
-*/
+

@@ -1,10 +1,5 @@
-NET "IFCLK_IN" TNM_NET = "IFCLK_IN";
-TIMESPEC "TS_IFCLK_IN" = PERIOD "IFCLK_IN" 20.833 ns HIGH 50 %;
-#TIMESPEC "TS_IFCLK_IN" = PERIOD "IFCLK_IN" 33.3 ns HIGH 50 %;
+# TIMESPEC's moved to clocks.ucf
 NET "IFCLK_IN"  LOC = "K20" |IOSTANDARD = LVCMOS33 ;
-
-NET "FXCLK_IN" TNM_NET = "FXCLK_IN";
-TIMESPEC "TS_FXCLK_IN" = PERIOD "FXCLK_IN" 20.833 ns HIGH 50 %;
 NET "FXCLK_IN"  LOC = "L22" | IOSTANDARD = LVCMOS33 ;
 
 NET "CS_IN"  LOC = "AB11" |IOSTANDARD = LVCMOS33 ;
@@ -61,31 +56,9 @@ NET "FPGA_ID<2>" LOC="T14" |IOSTANDARD = LVCMOS33 ;
 NET "FPGA_ID*" TIG;
 
 
-# Input FIFO
-#AREA_GROUP "pblock_io2" RANGE=SLICE_X104Y112:SLICE_X127Y127;
-#INST "input_fifo/fifo_16in_8out" AREA_GROUP="pblock_io2";
-
-# Controls for USB controller's Slave FIFO
-#AREA_GROUP "pblock_hs_io_ctrl" RANGE=SLICE_X124Y88:SLICE_X127Y95; # near SLRD,SLWR
-#AREA_GROUP "pblock_hs_io_ctrl" RANGE=SLICE_X124Y144:SLICE_X127Y151; # near FLAGB,FLAGC
-#AREA_GROUP "pblock_hs_io_ctrl" RANGE=SLICE_X124Y120:SLICE_X127Y127; # between FLAGB/C and SLRD/WR
-#INST "hs_io_inst/*" AREA_GROUP = "pblock_hs_io_ctrl";
-
-# Empty flag from output FIFO - required for Slave FIFO's timing
-#INST "output_fifo/output_limit_fifo/wft" AREA_GROUP="pblock_hs_io_ctrl";
-# Full flag from input FIFO - required for Slave FIFO's timing
-
 # VCR
-AREA_GROUP "pblock_io3" RANGE=SLICE_X68Y80:SLICE_X87Y95;
+AREA_GROUP "pblock_io3" RANGE=SLICE_X64Y80:SLICE_X67Y95;
 #AREA_GROUP "pblock_io3" RANGE=SLICE_X88Y80:SLICE_X103Y95;
 INST "vcr_inst" AREA_GROUP="pblock_io3";
 #INST "" AREA_GROUP "pblock_io3";
-
-# I/O registers
-#AREA_GROUP "pblock_hs_output_reg" RANGE=SLICE_X68Y80:SLICE_X75Y83; # 8x4
-#INST "output_fifo/output_limit_fifo/dout_r*" AREA_GROUP = "pblock_hs_output_reg";
-
-#AREA_GROUP "pblock_hs_input_reg" RANGE=SLICE_X68Y120:SLICE_X75Y123; # 8x4
-#INST "hs_io_inst/dout_r*" AREA_GROUP = "pblock_hs_input_reg";
-#INST "hs_io_inst/dout_r*" AREA_GROUP = "pblock_hs_output_reg";
 

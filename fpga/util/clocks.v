@@ -7,170 +7,115 @@
 // * FXCLK_IN 48 MHz.
 //
 // Output:
-// * IFCLK - equal to IFCLK_IN
-// * PKT_COMM_CLK - produced from FXCLK_IN
+// * IFCLK - equal to IFCLK_IN, some phase backshift
+// * other clocks
 //
 // **********************************************************************
 
+
 module clocks #(
-	parameter PKT_COMM_FREQUENCY = 180
+	parameter WORD_GEN_FREQ = 234,
+	parameter PKT_COMM_FREQ = 174,
+	parameter CORE_FREQ = 216,
+	parameter CMP_FREQ = 156
 	)(
 	input IFCLK_IN,
 	input FXCLK_IN,
 	
 	output IFCLK,
-	output PKT_COMM_CLK
-	//output APP_CLK
+	output WORD_GEN_CLK,
+	output PKT_COMM_CLK,
+	output CORE_CLK,
+	output CMP_CLK
 	);
 
-	// This would result in a usage of IBUFG
-	//assign IFCLK = IFCLK_IN;
 
-	// *******************************************************************
+	// ********************************************************************************
 	//
-	// DCM_SP - gets IFCLK_IN
+	// Attention developer!
 	//
-	// * Adds some phase backshift, value figured out in experiments
+	// * On ZTEX 1.15y board, clocks coming from USB device controller do bypass a CPLD.
+	// That's unknown why. To get Slave FIFO working, that requires clock phase backshift
+	// (DCM can do) or equal measure. That might be the placement of input registers deep
+	// into FPGA fabric or usage of IDELAY components.
 	//
-	// *******************************************************************
+	// * If several DCMs and/or PLLs are used and their placement is not manually defined,
+	// tools (ISE 14.5) place them randomly without a respect to dedicated lines.
+	// That results in a usage of general routing for clocks, that in turn can
+	// result in an unroutable condition if it's full of wires.
+	//
+	// * When tools notice derived clocks, they mess up with timing at Place and Route stage.
+	//
+	// ********************************************************************************
 
-	DCM_SP #(.CLKDV_DIVIDE    (2.000),
-		.CLKFX_DIVIDE          (2),
-		.CLKFX_MULTIPLY        (4),
-		.CLKIN_DIVIDE_BY_2     ("FALSE"),
-		.CLKIN_PERIOD          (20.833),
-		.CLKOUT_PHASE_SHIFT    ("FIXED"),
-		.CLK_FEEDBACK          ("1X"),
-		.DESKEW_ADJUST         ("SYSTEM_SYNCHRONOUS"),//("SOURCE_SYNCHRONOUS"),
-		.PHASE_SHIFT           (-48),//-32),
-		.STARTUP_WAIT          ("FALSE")
-	) DCM_0 (
-		// Input clock
-		.CLKIN                 (IFCLK_IN),
-		.CLKFB                 (dcm0_clkfb),
-		// Output clocks
-		.CLK0                  (IFCLK),//dcm0_clk0_IFCLK),
-		.CLK90                 (),
-		.CLK180                (),
-		.CLK270                (),
-		.CLK2X                 (),//dcm0_clk2x),
-		.CLK2X180              (),
-		.CLKFX                 (),//dcm0_clkfx),
-		.CLKFX180              (),
-		.CLKDV                 (),//dcm0_clkdv_IFCLK),
-		// Ports for dynamic phase shift
-		.PSCLK                 (1'b0),
-		.PSEN                  (1'b0),
-		.PSINCDEC              (1'b0),
-		.PSDONE                (),
-		// Other control and status signals
-		.LOCKED                (),
-		.STATUS                (),
-		.RST                   (1'b0),
-		// Unused pin- tie low
-		.DSSEN                 (1'b0)
-	);
 
-	//-------------------------------------
+
+	// ****************************************************************************
 	//
-	// DCM #0 Output buffering & feedback
+	// Spartan-6 Clocking Resources (Xilinx UG382) is anything but straightforward.
 	//
-	//-------------------------------------
+	// ****************************************************************************
 
-	//assign dcm0_clkfb = dcm0_clk2x;
-	//assign dcm0_clkfb = dcm0_clk0_IFCLK;
+	// Tasks:
+	// - generate a number of clocks for various parts of application
+	// - don't use general routing for clocks
+	// - define frequencies in MHz, not in magic units
+	// - don't define derived clocks, 1 constraint should apply only to 1 clock.
 
-	// This adds usage of BUFG, BUFIO2, BUFIO2FB
-	assign dcm0_clkfb = IFCLK;
-/*
-	BUFG bufg0(
-		.I(dcm0_clk0_IFCLK),
-		.O(IFCLK)
-	);
-*/
-/*
-	PLL_BASE #(
-		.BANDWIDTH("OPTIMIZED"),
-		.CLKFBOUT_MULT(16),
-		.CLKOUT0_DIVIDE(16),
-		.CLKOUT0_DUTY_CYCLE(0.5),
-		.CLK_FEEDBACK("CLKFBOUT"), 
-		.COMPENSATION("SOURCE_SYNCHRONOUS"),//("SYSTEM_SYNCHRONOUS"),//"INTERNAL"),
-		.DIVCLK_DIVIDE(1),
-		.REF_JITTER(0.10),
-		.RESET_ON_LOSS_OF_LOCK("FALSE")
-	) PLL_0 (
-		.CLKFBOUT(pll0_clkfb),
-		.CLKOUT0( pll0_clk0_IFCLK ),
-		.CLKFBIN(pll0_clkfb),
-		.CLKIN(dcm0_clk0_IFCLK),
-		.RST(1'b0)
-	);
 	
-	BUFG bufg0(
-		.I(pll0_clk0_IFCLK),
-		.O(IFCLK)
-	);
-*/
-
-
-	// *******************************************************************
+	// IFCLK_IN and FXCLK_IN are located near each other.
+	// There's some I/O clocking region there.
+	// Limited number of dedicated routes from that region to CMTs are available.
 	//
-	// DCM_CLKGEN - gets FXCLK_IN
+	// Each input clock can go to up to 2 CMTs, one of them must be
+	// in the top half of fpga and other one must be in the bottom half.
 	//
-	// *******************************************************************
-
-	DCM_CLKGEN #(
-		.CLKFXDV_DIVIDE(2),       		// CLKFXDV divide value (2, 4, 8, 16, 32)
-		.CLKFX_DIVIDE(4),//D_DEFAULT),  	// Divide value - D - (1-256)
-		.CLKFX_MD_MAX(0.0),       		// Specify maximum M/D ratio for timing anlysis
-		.CLKFX_MULTIPLY( PKT_COMM_FREQUENCY / 6 ),//M_DEFAULT),   // Multiply value - M - (2-256)
-		.CLKIN_PERIOD(0.0),       		// Input clock period specified in nS
-		.SPREAD_SPECTRUM("NONE"), 		// Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
-												// "VIDEO_LINK_M0", "VIDEO_LINK_M1" or "VIDEO_LINK_M2" 
-		.STARTUP_WAIT("FALSE")    		// Delay config DONE until DCM_CLKGEN LOCKED (TRUE/FALSE)
-	) DCM_CLKGEN_1 (
-		.CLKFX(),              		// 1-bit output: Generated clock output
-		.CLKFX180(),           		// 1-bit output: Generated clock output 180 degree out of phase from CLKFX.
-		.CLKFXDV( dcm1_clkfxdv ),    		// 1-bit output: Divided clock output
-		.LOCKED(),       		// 1-bit output: Locked output
-		.PROGDONE(),  // 1-bit output: Active high output to indicate the successful re-programming
-		.STATUS(),             		// 2-bit output: DCM_CLKGEN status
-		.CLKIN( FXCLK_IN ),          		// 1-bit input: Input clock
-		.FREEZEDCM(1'b0),      		// 1-bit input: Prevents frequency adjustments to input clock
-		.PROGCLK(1'b0),    		// 1-bit input: Clock input for M/D reconfiguration
-		.PROGDATA(1'b0),  // 1-bit input: Serial data input for M/D reconfiguration
-		.PROGEN(1'b0),      // 1-bit input: Active high program enable
-		.RST(1'b0)                // 1-bit input: Reset input pin
+	// CMTs are numbered 0 to 5 from bottom to top.
+	
+	cmt2 #(
+		.PLL_FREQ(WORD_GEN_FREQ),
+		.PHASE_SHIFT(-15)
+	) cmt2(
+		.I(IFCLK_IN),
+		.CLK0(IFCLK),
+		.PLL_CLK(WORD_GEN_CLK),
+		.IFCLK1_BUFG(IFCLK1_BUFG)
 	);
 
-	PLL_BASE #(
-		.BANDWIDTH("OPTIMIZED"),
-		.CLKFBOUT_MULT(4),
-		.CLKOUT0_DIVIDE(4),
-		.CLKOUT0_DUTY_CYCLE(0.5),
-		.CLK_FEEDBACK("CLKFBOUT"),//OUT0"), 
-		.COMPENSATION("SYSTEM_SYNCHRONOUS"),//INTERNAL"),
-		.DIVCLK_DIVIDE(1),
-		.REF_JITTER(0.10),
-		.RESET_ON_LOSS_OF_LOCK("FALSE")
-	) PLL_1 (
-		.CLKFBOUT(pll1_clkfb),
-		.CLKOUT0( pll1_clk0_PKT_COMM_CLK ),//PKT_COMM_CLK ),
-		.CLKOUT1(),
-		.CLKOUT2(),
-		.CLKOUT3(),
-		.CLKOUT4(),
-		.CLKOUT5(),
-		.LOCKED(),
-		.CLKFBIN(pll1_clkfb),//PKT_COMM_CLK),
-		.CLKIN(dcm1_clkfxdv),
-		.RST(1'b0)//pll_reset)
+
+	cmt_common #(
+		//.CLK2_FREQ(),
+		.PLL_FREQ(CMP_FREQ)
+	) cmt1(
+		.I(FXCLK_IN),
+		.CLK2(),
+		.PLL_CLK(CMP_CLK)
 	);
-		
-	BUFG bufg1(
-		.I(pll1_clk0_PKT_COMM_CLK),
-		.O(PKT_COMM_CLK)
+
+	cmt_common #(
+		//.CLK2_FREQ(),
+		.PLL_FREQ(CORE_FREQ)
+	) cmt3(
+		.I(FXCLK_IN),
+		.CLK2(),
+		.PLL_CLK(CORE_CLK)
+	);
+
+
+	
+	// ********************************************************************
+	//
+	// If more PLLs are used, they can source input clock signal from BUFG.
+	//
+	// ********************************************************************
+
+	cmt_common #(
+		//.CLK2_FREQ(),
+		.PLL_FREQ(PKT_COMM_FREQ)
+	) cmt_bufg0(
+		.I(IFCLK1_BUFG),
+		.CLK2(),
+		.PLL_CLK(PKT_COMM_CLK)
 	);
 
 endmodule
