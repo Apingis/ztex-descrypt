@@ -1,0 +1,135 @@
+#
+# cmp_config
+#
+INST "pkt_comm/cmp_config/*" AREA_GROUP = "arbiter";
+NET "pkt_comm/cmp_config/salt_out*" TIG;
+NET "pkt_comm/cmp_config/read_addr_start*" TIG;
+NET "pkt_comm/cmp_config/addr_diff_start*" TIG;
+#
+# arbiter, I/O fifo's
+#
+#AREA_GROUP "arbiter" RANGE=SLICE_X88Y80:SLICE_X103Y95; # 1024 LUTs
+#AREA_GROUP "arbiter" RANGE=SLICE_X64Y80:SLICE_X103Y95;
+AREA_GROUP "arbiter" RANGE=SLICE_X48Y80:SLICE_X103Y95;
+AREA_GROUP "arbiter" RANGE=RAMB16_X3Y38:RAMB16_X3Y48,RAMB8_X4Y40:RAMB8_X4Y47; # 6 x 16Kbit, 8 x 8Kbit
+INST "pkt_comm/arbiter/*" AREA_GROUP = "arbiter";
+#AREA_GROUP "arbiter_input_fifo" RANGE=RAMB8_X4Y40:RAMB8_X4Y43;
+#INST "pkt_comm/arbiter/arbiter_input_fifo/*" AREA_GROUP = "arbiter_input_fifo";
+INST "input_fifo/fifo_bram_8x1024_fwft/*" AREA_GROUP="arbiter";
+INST "output_fifo/fifo_dram_async_16/*" AREA_GROUP="arbiter";
+
+
+AREA_GROUP "wrapper0" RANGE=SLICE_X8Y109:SLICE_X60Y120;
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/*" AREA_GROUP="wrapper0";
+AREA_GROUP "wrapper0_2" RANGE=SLICE_X8Y130:SLICE_X60Y141;
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/*r2*" AREA_GROUP="wrapper0_2";
+
+AREA_GROUP "core0_0" RANGE=SLICE_X0Y139:SLICE_X31Y158;
+AREA_GROUP "core0_0" RANGE=RAMB16_X0Y70:RAMB16_X1Y78;
+AREA_GROUP "core0_1" RANGE=SLICE_X32Y139:SLICE_X63Y158;
+AREA_GROUP "core0_1" RANGE=RAMB16_X2Y70:RAMB16_X2Y78;
+AREA_GROUP "core0_2" RANGE=SLICE_X0Y118:SLICE_X31Y137;
+AREA_GROUP "core0_2" RANGE=RAMB16_X0Y60:RAMB16_X1Y68;
+AREA_GROUP "core0_3" RANGE=SLICE_X32Y118:SLICE_X63Y137;
+AREA_GROUP "core0_3" RANGE=RAMB16_X2Y60:RAMB16_X2Y68;
+AREA_GROUP "core0_4" RANGE=SLICE_X0Y97:SLICE_X29Y116;
+AREA_GROUP "core0_4" RANGE=RAMB16_X0Y50:RAMB16_X1Y58;
+AREA_GROUP "core0_5" RANGE=SLICE_X32Y97:SLICE_X63Y116;
+AREA_GROUP "core0_5" RANGE=RAMB16_X2Y50:RAMB16_X2Y58;
+
+
+AREA_GROUP "wrapper1" RANGE=SLICE_X66Y109:SLICE_X112Y120;
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/*" AREA_GROUP="wrapper1";
+AREA_GROUP "wrapper1_2" RANGE=SLICE_X66Y130:SLICE_X112Y141;
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/*r2*" AREA_GROUP="wrapper1_2";
+
+AREA_GROUP "core1_0" RANGE=SLICE_X64Y139:SLICE_X95Y158;
+AREA_GROUP "core1_0" RANGE=RAMB16_X3Y70:RAMB16_X3Y78;
+AREA_GROUP "core1_1" RANGE=SLICE_X96Y139:SLICE_X127Y158;
+AREA_GROUP "core1_1" RANGE=RAMB16_X4Y70:RAMB16_X5Y78;
+AREA_GROUP "core1_2" RANGE=SLICE_X64Y118:SLICE_X95Y137;
+AREA_GROUP "core1_2" RANGE=RAMB16_X3Y60:RAMB16_X3Y68;
+AREA_GROUP "core1_3" RANGE=SLICE_X96Y118:SLICE_X127Y137;
+AREA_GROUP "core1_3" RANGE=RAMB16_X4Y60:RAMB16_X5Y68;
+AREA_GROUP "core1_4" RANGE=SLICE_X64Y97:SLICE_X95Y116;
+AREA_GROUP "core1_4" RANGE=RAMB16_X3Y50:RAMB16_X3Y58;
+AREA_GROUP "core1_5" RANGE=SLICE_X96Y97:SLICE_X127Y116;
+AREA_GROUP "core1_5" RANGE=RAMB16_X4Y50:RAMB16_X5Y58;
+
+
+AREA_GROUP "wrapper2" RANGE=SLICE_X8Y54:SLICE_X60Y62;
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/*" AREA_GROUP="wrapper2";
+AREA_GROUP "wrapper2_2" RANGE=SLICE_X8Y34:SLICE_X60Y42;
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/*r2*" AREA_GROUP="wrapper2_2";
+
+AREA_GROUP "core2_0" RANGE=SLICE_X0Y59:SLICE_X31Y78;
+AREA_GROUP "core2_0" RANGE=RAMB16_X0Y32:RAMB16_X1Y38;
+AREA_GROUP "core2_1" RANGE=SLICE_X32Y59:SLICE_X63Y78;
+AREA_GROUP "core2_1" RANGE=RAMB16_X2Y32:RAMB16_X2Y38;
+AREA_GROUP "core2_2" RANGE=SLICE_X0Y38:SLICE_X31Y57;
+AREA_GROUP "core2_2" RANGE=RAMB16_X0Y20:RAMB16_X1Y28;
+AREA_GROUP "core2_3" RANGE=SLICE_X32Y38:SLICE_X63Y57;
+AREA_GROUP "core2_3" RANGE=RAMB16_X2Y20:RAMB16_X2Y28;
+AREA_GROUP "core2_4" RANGE=SLICE_X0Y17:SLICE_X31Y36;
+AREA_GROUP "core2_4" RANGE=RAMB16_X0Y10:RAMB16_X1Y18;
+AREA_GROUP "core2_5" RANGE=SLICE_X32Y17:SLICE_X63Y36;
+AREA_GROUP "core2_5" RANGE=RAMB16_X2Y10:RAMB16_X2Y18;
+
+
+AREA_GROUP "wrapper3" RANGE=SLICE_X66Y54:SLICE_X112Y62;
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/*" AREA_GROUP="wrapper3";
+AREA_GROUP "wrapper3_2" RANGE=SLICE_X66Y34:SLICE_X112Y42;
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/*r2*" AREA_GROUP="wrapper3_2";
+
+AREA_GROUP "core3_0" RANGE=SLICE_X64Y59:SLICE_X95Y78;
+AREA_GROUP "core3_0" RANGE=RAMB16_X3Y32:RAMB16_X3Y38;
+AREA_GROUP "core3_1" RANGE=SLICE_X96Y59:SLICE_X127Y78;
+AREA_GROUP "core3_1" RANGE=RAMB16_X4Y32:RAMB16_X5Y38;
+AREA_GROUP "core3_2" RANGE=SLICE_X64Y38:SLICE_X95Y57;
+AREA_GROUP "core3_2" RANGE=RAMB16_X3Y20:RAMB16_X3Y28;
+AREA_GROUP "core3_3" RANGE=SLICE_X96Y38:SLICE_X127Y57;
+AREA_GROUP "core3_3" RANGE=RAMB16_X4Y20:RAMB16_X5Y28;
+AREA_GROUP "core3_4" RANGE=SLICE_X64Y17:SLICE_X95Y36;
+AREA_GROUP "core3_4" RANGE=RAMB16_X3Y10:RAMB16_X3Y18;
+AREA_GROUP "core3_5" RANGE=SLICE_X96Y17:SLICE_X127Y36;
+AREA_GROUP "core3_5" RANGE=RAMB16_X4Y10:RAMB16_X5Y18;
+
+
+#RANGE=SLICE_X98Y170:SLICE_X127Y189;
+
+
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/core_gen[0].core/*" AREA_GROUP="core0_0";
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/core_gen[1].core/*" AREA_GROUP="core0_1";
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/core_gen[2].core/*" AREA_GROUP="core0_2";
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/core_gen[3].core/*" AREA_GROUP="core0_3";
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/core_gen[4].core/*" AREA_GROUP="core0_4";
+INST "pkt_comm/arbiter/wrapper_gen[0].wrapper/core_gen[5].core/*" AREA_GROUP="core0_5";
+
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/core_gen[0].core/*" AREA_GROUP="core1_0";
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/core_gen[1].core/*" AREA_GROUP="core1_1";
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/core_gen[2].core/*" AREA_GROUP="core1_2";
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/core_gen[3].core/*" AREA_GROUP="core1_3";
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/core_gen[4].core/*" AREA_GROUP="core1_4";
+INST "pkt_comm/arbiter/wrapper_gen[1].wrapper/core_gen[5].core/*" AREA_GROUP="core1_5";
+
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/core_gen[0].core/*" AREA_GROUP="core2_0";
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/core_gen[1].core/*" AREA_GROUP="core2_1";
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/core_gen[2].core/*" AREA_GROUP="core2_2";
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/core_gen[3].core/*" AREA_GROUP="core2_3";
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/core_gen[4].core/*" AREA_GROUP="core2_4";
+INST "pkt_comm/arbiter/wrapper_gen[2].wrapper/core_gen[5].core/*" AREA_GROUP="core2_5";
+
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/core_gen[0].core/*" AREA_GROUP="core3_0";
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/core_gen[1].core/*" AREA_GROUP="core3_1";
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/core_gen[2].core/*" AREA_GROUP="core3_2";
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/core_gen[3].core/*" AREA_GROUP="core3_3";
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/core_gen[4].core/*" AREA_GROUP="core3_4";
+INST "pkt_comm/arbiter/wrapper_gen[3].wrapper/core_gen[5].core/*" AREA_GROUP="core3_5";
+
+
+NET "pkt_comm/arbiter/wrapper_gen[*].wrapper/core_gen[*].core/salt*" TIG;
+NET "pkt_comm/arbiter/wrapper_gen[*].wrapper/core_gen[*].core/read_addr_start*" TIG;
+NET "pkt_comm/arbiter/wrapper_gen[*].wrapper/core_gen[*].core/addr_diff_start*" TIG;
+NET "pkt_comm/arbiter/wrapper_gen[*].wrapper/core_gen[*].core/pkt_num*" TIG;
+NET "pkt_comm/arbiter/wrapper_gen[*].wrapper/core_gen[*].core/batch_num*" TIG;
+

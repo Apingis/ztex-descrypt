@@ -100,7 +100,8 @@ module inouttraffic(
 	wire [7:0] app_mode;
 	wire [7:0] app_status, pkt_comm_status;
 	
-	pkt_comm pkt_comm(
+	pkt_comm_arbiter pkt_comm(
+	//pkt_comm pkt_comm(
 	//application application(
 		.CLK(PKT_COMM_CLK),
 		.WORD_GEN_CLK(WORD_GEN_CLK),
@@ -132,7 +133,8 @@ module inouttraffic(
 	wire [15:0] output_dout; // output via High-Speed Interface
 
 	output_fifo output_fifo(
-		.wr_clk(PKT_COMM_CLK),
+		//.wr_clk(PKT_COMM_CLK),
+		.wr_clk(CMP_CLK),
 		.din(app_dout),
 		.wr_en(app_wr_en),
 		.full(app_full),

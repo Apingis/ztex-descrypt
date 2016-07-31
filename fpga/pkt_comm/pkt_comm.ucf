@@ -12,7 +12,7 @@ INST "pkt_comm/extra_reg_empty*" AREA_GROUP = "pkt_comm";
 #
 #
 #
-AREA_GROUP "io2" RANGE=SLICE_X84Y80:SLICE_X97Y99;
-INST "input_fifo/fifo_bram_8x1024_fwft/*" AREA_GROUP = "io2";
-INST "output_fifo/fifo_dram_async_16/*" AREA_GROUP = "io2";
-INST "pkt_comm/fifo_dram_async_120/*" AREA_GROUP = "io2";
+#AREA_GROUP "io2" RANGE=SLICE_X84Y80:SLICE_X97Y99;
+#INST "input_fifo/fifo_bram_8x1024_fwft/*" AREA_GROUP = "io2";
+#INST "output_fifo/fifo_dram_async_16/*" AREA_GROUP = "io2";
+#INST "pkt_comm/fifo_dram_async_120/*" AREA_GROUP = "io2";
